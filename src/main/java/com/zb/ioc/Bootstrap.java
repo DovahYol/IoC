@@ -1,12 +1,13 @@
 package com.zb.ioc;
 
 import com.zb.ioc.annotation.Component;
-import org.apache.commons.lang3.ClassUtils;
 import org.reflections.Reflections;
+import org.reflections.scanners.SubTypesScanner;
+import org.reflections.util.ClasspathHelper;
+import org.reflections.util.ConfigurationBuilder;
 
 import java.lang.reflect.InvocationTargetException;
 import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
@@ -16,17 +17,29 @@ public class Bootstrap {
         Set<Class<?>> annotated = reflections.getTypesAnnotatedWith(Component.class);
         Map<Class, Object> map = new HashMap<>();
         annotated.forEach(t -> {
-                    List<Class<?>> classes = ClassUtils.getAllInterfaces(t);
-                    classes.forEach(c -> {
-                        try {
-                            map.put(c, t.getConstructor().newInstance());
-                        } catch (InstantiationException | IllegalAccessException
-                                | InvocationTargetException | NoSuchMethodException e) {
-                            e.printStackTrace();
-                        }
-                    });
-                });
+            try {
+                map.put(t, t.getConstructor().newInstance());
+            } catch (InstantiationException | IllegalAccessException
+                    | InvocationTargetException | NoSuchMethodException e) {
+                e.printStackTrace();
+            }
+        });
         return map;
+    }
 
+    public void interceptAllMethods(String packageName){
+        Reflections reflections = new Reflections(new ConfigurationBuilder()
+                .setUrls(ClasspathHelper.forPackage(packageName))
+                .setScanners(new SubTypesScanner(false)));
+        Set<String> usages = reflections.getAllTypes();
+        usages.forEach(u -> {
+            Class<?> c = null;
+            try {
+                c = Class.forName(u);
+            } catch (ClassNotFoundException e) {
+                e.printStackTrace();
+            }
+            System.out.println(c);
+        });
     }
 }

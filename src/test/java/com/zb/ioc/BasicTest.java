@@ -19,21 +19,23 @@ public class BasicTest {
     public static void setUpBeforeClass() {
         Bootstrap bootstrap = new Bootstrap();
         maps =  bootstrap.createBeanMap("com.zb.ioc");
+        bootstrap.interceptAllMethods("com.zb.ioc");
     }
     @Test
-    public void test() {
+    public void test001() {
         Field[] fields = this.getClass().getDeclaredFields();
         for (final Field field : fields) {
+            if(!field.isAnnotationPresent(Antowired.class)) continue;
             final Class fieldClass = field.getType();
             maps.forEach((k, v) -> {
-                        if (fieldClass.isAssignableFrom(k)) {
-                            try {
-                                field.set(this, v);
-                            } catch (IllegalAccessException e1) {
-                                e1.printStackTrace();
-                            }
-                        }
-                    });
+                if (fieldClass.isAssignableFrom(k)) {
+                    try {
+                        field.set(this, v);
+                    } catch (IllegalAccessException e1) {
+                        e1.printStackTrace();
+                    }
+                }
+            });
         }
         assertEquals(song.getName(), "Chinese");
     }
