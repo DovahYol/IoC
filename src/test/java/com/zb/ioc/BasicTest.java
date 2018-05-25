@@ -1,42 +1,71 @@
 package com.zb.ioc;
 
 import com.zb.ioc.annotation.Antowired;
+import com.zb.ioc.annotation.Component;
+import com.zb.ioc.utils.Digraph;
 import org.junit.BeforeClass;
 import org.junit.Test;
 
-import java.lang.reflect.Field;
 import java.util.Map;
 
 import static org.junit.Assert.assertEquals;
 
+@Component
 public class BasicTest {
     @Antowired
     private Song song;
 
+    public Song getSong() {
+        return song;
+    }
+
     private static Map<Class, Object> maps;
 
     @BeforeClass
-    public static void setUpBeforeClass() {
+    public static void setUpBeforeClass() throws Exception {
         Bootstrap bootstrap = new Bootstrap();
         maps =  bootstrap.createBeanMap("com.zb.ioc");
-        bootstrap.interceptAllMethods("com.zb.ioc");
     }
     @Test
     public void test001() {
-        Field[] fields = this.getClass().getDeclaredFields();
-        for (final Field field : fields) {
-            if(!field.isAnnotationPresent(Antowired.class)) continue;
-            final Class fieldClass = field.getType();
-            maps.forEach((k, v) -> {
-                if (fieldClass.isAssignableFrom(k)) {
-                    try {
-                        field.set(this, v);
-                    } catch (IllegalAccessException e1) {
-                        e1.printStackTrace();
-                    }
-                }
-            });
+        BasicTest basicTest = (BasicTest)maps.get(BasicTest.class);
+        assertEquals(basicTest.getSong().getName(), "Chinese GenreChinese");
+    }
+
+    @Test
+    public void test002() {
+        Digraph<Integer> digraph = new Digraph<>();
+        digraph.addEdge(5, 11);
+        digraph.addEdge(7, 11);
+        digraph.addEdge(7, 8);
+        digraph.addEdge(3, 8);
+        digraph.addEdge(3, 10);
+        digraph.addEdge(11, 2);
+        digraph.addEdge(11, 9);
+        digraph.addEdge(11, 10);
+        digraph.addEdge(8, 9);
+        for (Integer i :
+                digraph.getTopologicalList()) {
+            System.out.println(i);
         }
-        assertEquals(song.getName(), "Chinese");
+        assertEquals(true, true);
+    }
+
+    @Test
+    public void test003() {
+        Digraph<Integer> digraph = new Digraph<>();
+        digraph.addEdge(5, 11);
+        digraph.addEdge(7, 11);
+        digraph.addEdge(7, 8);
+        digraph.addEdge(3, 8);
+        digraph.addEdge(3, 10);
+        digraph.addEdge(11, 2);
+        digraph.addEdge(11, 9);
+        digraph.addEdge(11, 10);
+        digraph.addEdge(8, 9);
+        digraph.addEdge(9, 10);
+        digraph.addEdge(10, 3);
+        digraph.getTopologicalList();
+        assertEquals(digraph.hasErrors(), true);
     }
 }

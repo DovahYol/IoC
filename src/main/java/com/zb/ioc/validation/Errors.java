@@ -7,7 +7,7 @@ public class Errors {
     private List<String> errors = new ArrayList<>();
 
     public boolean hasErrors(){
-        return errors.size() == 0;
+        return errors.size() != 0;
     }
 
     public List<String> getAllErrors(){

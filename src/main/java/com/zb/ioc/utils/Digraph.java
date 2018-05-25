@@ -2,10 +2,7 @@ package com.zb.ioc.utils;
 
 import com.zb.ioc.validation.Errors;
 
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 
 /**
  * 有向图,用来
@@ -15,15 +12,25 @@ import java.util.Map;
  */
 public class Digraph<T> {
     private Map< T, List<T> > map = new HashMap<>();
+    private Map< T, List<T> > reverseMap = new HashMap<>();
 
     public void addEdge(T v, T w){
+        //邻接表保存图
         map.putIfAbsent(v, new ArrayList<>());
         map.get(v).add(w);
+        //邻接表保存图的逆
+        reverseMap.putIfAbsent(w, new ArrayList<>());
+        reverseMap.get(w).add(v);
     }
 
-    private List<T> topologicalList = new ArrayList<>();
+    public List<T> getAllStartpoints(T w){
+        return reverseMap.getOrDefault(w, new ArrayList<>());
+    }
+
+    private LinkedList<T> topologicalList = new LinkedList<>();
 
     public List<T> getTopologicalList() {
+        dfsInitializer();
         return topologicalList;
     }
 
@@ -39,15 +46,30 @@ public class Digraph<T> {
 
     private void dfsInitializer(){
         if(map.size() == 0) return;
-        boolean[] isVisited = new boolean[map.size()];
-        boolean[] isOnStack = new boolean[map.size()];
+        Map<T, Boolean> isVisited = new HashMap<>();
+        Map<T, Boolean> isOnStack = new HashMap<>();
         map.forEach((k, v) -> {
-
+            if(!isVisited.getOrDefault(k, false)){
+                dfs(k, isVisited, isOnStack);
+            }
         });
     }
 
-    private void dfs(){
-
+    private void dfs(T t, Map<T, Boolean> isVisited, Map<T, Boolean> isOnStack){
+        isVisited.put(t, true);
+        isOnStack.put(t, true);
+        if(map.get(t) != null){
+            for(T item : map.get(t)){
+                if(!isVisited.getOrDefault(item, false)){
+                    dfs(item, isVisited, isOnStack);
+                }else if(isOnStack.getOrDefault(item, false)){
+                    errors.setError(String.format("检测到%s和%s存在循环依赖关系。", t, item));
+                    return;
+                }
+            }
+        }
+        topologicalList.push(t);
+        isOnStack.put(t, false);
     }
 
 
