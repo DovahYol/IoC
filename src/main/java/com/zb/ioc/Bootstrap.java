@@ -6,6 +6,7 @@ import com.zb.ioc.utils.Digraph;
 import org.reflections.Reflections;
 
 import java.lang.reflect.Field;
+import java.lang.reflect.Method;
 import java.util.*;
 
 public class Bootstrap {
@@ -14,12 +15,15 @@ public class Bootstrap {
         //支持类注解提供依赖
         Set<Class<?>> annotated = reflections.getTypesAnnotatedWith(Component.class);
         Digraph<Class> digraph = new Digraph<>();
-        //构造依赖字典
-        Map< Class, Map<Field, Class> > dependencyMap = new HashMap<>();
+        //属性依赖字典
+        Map< Class, Map< Field, Class > > fieldDependcyMap = new HashMap<>();
+        //方法依赖字典
+        Map< Class, Map< Method, List<Class> > > methodDependcyMap = new HashMap<>();
         for (Class<?> t:
                 annotated) {
-            Map<Field, Class> fieldMap = new HashMap<>();
-            dependencyMap.put(t, fieldMap);
+            //构造属性依赖字典
+            Map< Field, Class > fieldMap = new HashMap<>();
+            fieldDependcyMap.put(t, fieldMap);
             Field[] fields = t.getDeclaredFields();
             for (Field f:
                  fields) {
@@ -30,6 +34,10 @@ public class Bootstrap {
                     digraph.addEdge(concreteClass, t);
                 }
             }
+            //构造方法依赖字典
+            Map< Method, List<Class> > methodMap = new HashMap<>();
+            methodDependcyMap.put(t, methodMap);
+            Method[] methods = t.getDeclaredMethods();
         }
         List<Class> list = digraph.getTopologicalList();
         if(digraph.hasErrors()){
@@ -50,7 +58,7 @@ public class Bootstrap {
             }else{
                 Object object = t.getConstructor().newInstance();
                 for (Map.Entry<Field, Class> e:
-                        dependencyMap.get(t).entrySet()) {
+                        fieldDependcyMap.get(t).entrySet()) {
                     if(result.get(e.getValue()) == null){
                         throw new NullPointerException();
                     }
