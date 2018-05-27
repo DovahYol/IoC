@@ -11,20 +11,20 @@ import java.util.*;
  * @param <T>
  */
 public class Digraph<T> {
-    private Map< T, List<T> > map = new HashMap<>();
-    private Map< T, List<T> > reverseMap = new HashMap<>();
+    private Map< T, Set<T> > map = new HashMap<>();
+    private Map< T, Set<T> > reverseMap = new HashMap<>();
 
     public void addEdge(T v, T w){
         //邻接表保存图
-        map.putIfAbsent(v, new ArrayList<>());
+        map.putIfAbsent(v, new HashSet<>());
         map.get(v).add(w);
         //邻接表保存图的逆
-        reverseMap.putIfAbsent(w, new ArrayList<>());
+        reverseMap.putIfAbsent(w, new HashSet<>());
         reverseMap.get(w).add(v);
     }
 
-    public List<T> getAllStartpoints(T w){
-        return reverseMap.getOrDefault(w, new ArrayList<>());
+    public Set<T> getAllStartpoints(T w){
+        return reverseMap.getOrDefault(w, new HashSet<>());
     }
 
     private LinkedList<T> topologicalList = new LinkedList<>();

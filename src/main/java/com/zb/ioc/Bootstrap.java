@@ -19,6 +19,7 @@ public class Bootstrap {
         Map< Class, Map< Field, Class > > fieldDependcyMap = new HashMap<>();
         //方法依赖字典
         Map< Class, Map< Method, List<Class> > > methodDependcyMap = new HashMap<>();
+        List<Class> parameterTypes;
         for (Class<?> t:
                 annotated) {
             //构造属性依赖字典
@@ -28,8 +29,8 @@ public class Bootstrap {
             for (Field f:
                  fields) {
                 if(f.isAnnotationPresent(Antowired.class)){
-                    Class concreteClass = scanImpl(annotated.iterator(), f.getType());
                     f.setAccessible(true);//private的field也可以注入
+                    Class concreteClass = scanImpl(annotated.iterator(), f.getType());
                     fieldMap.put(f, concreteClass);
                     digraph.addEdge(concreteClass, t);
                 }
@@ -38,6 +39,21 @@ public class Bootstrap {
             Map< Method, List<Class> > methodMap = new HashMap<>();
             methodDependcyMap.put(t, methodMap);
             Method[] methods = t.getDeclaredMethods();
+            for (Method m:
+                    methods) {
+                if(m.isAnnotationPresent(Antowired.class)){
+                    m.setAccessible(true);
+                    methodMap.put(m, new ArrayList<>());
+                    parameterTypes = methodMap.get(m);
+                    Class[] classes = m.getParameterTypes();
+                    for (Class parameterType :
+                            classes) {
+                        Class concreteClass = scanImpl(annotated.iterator(), parameterType);
+                        parameterTypes.add(concreteClass);
+                        digraph.addEdge(concreteClass, t);
+                    }
+                }
+            }
         }
         List<Class> list = digraph.getTopologicalList();
         if(digraph.hasErrors()){
@@ -57,13 +73,23 @@ public class Bootstrap {
                 result.put(t, t.getConstructor().newInstance());
             }else{
                 Object object = t.getConstructor().newInstance();
-                for (Map.Entry<Field, Class> e:
+                //设置property的值
+                for (Map.Entry< Field, Class > e:
                         fieldDependcyMap.get(t).entrySet()) {
                     if(result.get(e.getValue()) == null){
                         throw new NullPointerException();
                     }
                     e.getKey().set(object, result.get(e.getValue()));
                 }
+                //调用被@Autowired注解的方法
+                for (Map.Entry< Method, List<Class> > e:
+                        methodDependcyMap.get(t).entrySet()) {
+                    Object[] parameters = e.getValue().stream()
+                            .map(result::get)
+                            .toArray();
+                    e.getKey().invoke(object, parameters);
+                }
+
                 result.put(t, object);
             }
         }

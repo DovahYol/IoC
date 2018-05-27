@@ -15,8 +15,21 @@ public class BasicTest {
     @Antowired
     private Song song;
 
+    private Song anotherSong;
+    private Singer anothersinger;
+
     public Song getSong() {
         return song;
+    }
+
+    public Song getAnotherSong() {
+        return anotherSong;
+    }
+
+    @Antowired
+    private void setAnotherSong(Song song, Singer singer) {
+        anotherSong = song;
+        anothersinger = singer;
     }
 
     private static Map<Class, Object> maps;
@@ -67,5 +80,12 @@ public class BasicTest {
         digraph.addEdge(10, 3);
         digraph.getTopologicalList();
         assertEquals(digraph.hasErrors(), true);
+    }
+
+    @Test
+    public void test004() {
+        BasicTest basicTest = (BasicTest)maps.get(BasicTest.class);
+        assertEquals(basicTest.getAnotherSong().getName() + " " + basicTest.anothersinger.name(),
+                "Chinese GenreChinese Jay Chou");
     }
 }
