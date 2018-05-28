@@ -62,7 +62,7 @@ public class Bootstrap {
             if (c.isPresent()){
                 c.get().setAccessible(true);
                 constructorMap.put(c.get(), new ArrayList<>());
-                parameterTypes = constructorMap.get(c);
+                parameterTypes = constructorMap.get(c.get());
                 Class[] classes = c.get().getParameterTypes();
                 for (Class parameterType :
                         classes) {
@@ -90,7 +90,18 @@ public class Bootstrap {
                  */
                 result.put(t, t.getConstructor().newInstance());
             }else{
-                Object object = t.getConstructor().newInstance();
+                //创建一个实例
+                Object object = null;
+                if(constructorDependencyMap.get(t).size() == 0){
+                    object = t.getConstructor().newInstance();
+                }
+                for (Map.Entry< Constructor, List<Class> > e:
+                        constructorDependencyMap.get(t).entrySet()) {
+                    Object[] parameters = e.getValue().stream()
+                            .map(result::get)
+                            .toArray();
+                    object = e.getKey().newInstance(parameters);
+                }
                 //设置property的值
                 for (Map.Entry< Field, Class > e:
                         fieldDependencyMap.get(t).entrySet()) {

@@ -88,4 +88,11 @@ public class BasicTest {
         assertEquals(basicTest.getAnotherSong().getName() + " " + basicTest.anothersinger.name(),
                 "Chinese GenreChinese Jay Chou");
     }
+
+    @Test
+    public void test005() {
+        ChineseSong chineseSong = (ChineseSong)maps.get(ChineseSong.class);
+        assertEquals(chineseSong.getSinger().name(),
+                "Jay Chou");
+    }
 }
