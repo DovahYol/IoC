@@ -7,5 +7,5 @@ import java.lang.annotation.Target;
 
 @Target({ElementType.FIELD, ElementType.METHOD})
 @Retention(RetentionPolicy.RUNTIME) //运行时可以去到
-public @interface Antowired {
+public @interface Autowired {
 }

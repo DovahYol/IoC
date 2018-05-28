@@ -1,12 +1,11 @@
 package com.zb.ioc;
 
-import com.zb.ioc.annotation.Antowired;
+import com.zb.ioc.annotation.Autowired;
 import com.zb.ioc.annotation.Component;
 import com.zb.ioc.utils.Digraph;
 import org.reflections.Reflections;
 
-import java.lang.reflect.Field;
-import java.lang.reflect.Method;
+import java.lang.reflect.*;
 import java.util.*;
 
 public class Bootstrap {
@@ -16,19 +15,21 @@ public class Bootstrap {
         Set<Class<?>> annotated = reflections.getTypesAnnotatedWith(Component.class);
         Digraph<Class> digraph = new Digraph<>();
         //属性依赖字典
-        Map< Class, Map< Field, Class > > fieldDependcyMap = new HashMap<>();
+        Map< Class, Map< Field, Class > > fieldDependencyMap = new HashMap<>();
         //方法依赖字典
-        Map< Class, Map< Method, List<Class> > > methodDependcyMap = new HashMap<>();
+        Map< Class, Map< Method, List<Class> > > methodDependencyMap = new HashMap<>();
+        //构造函数依赖字典
+        Map< Class, Map< Constructor, List<Class> > > constructorDependencyMap = new HashMap<>();
         List<Class> parameterTypes;
         for (Class<?> t:
                 annotated) {
             //构造属性依赖字典
             Map< Field, Class > fieldMap = new HashMap<>();
-            fieldDependcyMap.put(t, fieldMap);
+            fieldDependencyMap.put(t, fieldMap);
             Field[] fields = t.getDeclaredFields();
             for (Field f:
                  fields) {
-                if(f.isAnnotationPresent(Antowired.class)){
+                if(f.isAnnotationPresent(Autowired.class)){
                     f.setAccessible(true);//private的field也可以注入
                     Class concreteClass = scanImpl(annotated.iterator(), f.getType());
                     fieldMap.put(f, concreteClass);
@@ -37,11 +38,11 @@ public class Bootstrap {
             }
             //构造方法依赖字典
             Map< Method, List<Class> > methodMap = new HashMap<>();
-            methodDependcyMap.put(t, methodMap);
+            methodDependencyMap.put(t, methodMap);
             Method[] methods = t.getDeclaredMethods();
             for (Method m:
                     methods) {
-                if(m.isAnnotationPresent(Antowired.class)){
+                if (m.isAnnotationPresent(Autowired.class)){
                     m.setAccessible(true);
                     methodMap.put(m, new ArrayList<>());
                     parameterTypes = methodMap.get(m);
@@ -54,6 +55,23 @@ public class Bootstrap {
                     }
                 }
             }
+            //构造构造函数依赖字典
+            Map< Constructor, List<Class> > constructorMap = new HashMap<>();
+            constructorDependencyMap.put(t, constructorMap);
+            Optional<Constructor> c = scanConstructor(t);
+            if (c.isPresent()){
+                c.get().setAccessible(true);
+                constructorMap.put(c.get(), new ArrayList<>());
+                parameterTypes = constructorMap.get(c);
+                Class[] classes = c.get().getParameterTypes();
+                for (Class parameterType :
+                        classes) {
+                    Class concreteClass = scanImpl(annotated.iterator(), parameterType);
+                    parameterTypes.add(concreteClass);
+                    digraph.addEdge(concreteClass, t);
+                }
+            }
+
         }
         List<Class> list = digraph.getTopologicalList();
         if(digraph.hasErrors()){
@@ -75,7 +93,7 @@ public class Bootstrap {
                 Object object = t.getConstructor().newInstance();
                 //设置property的值
                 for (Map.Entry< Field, Class > e:
-                        fieldDependcyMap.get(t).entrySet()) {
+                        fieldDependencyMap.get(t).entrySet()) {
                     if(result.get(e.getValue()) == null){
                         throw new NullPointerException();
                     }
@@ -83,7 +101,7 @@ public class Bootstrap {
                 }
                 //调用被@Autowired注解的方法
                 for (Map.Entry< Method, List<Class> > e:
-                        methodDependcyMap.get(t).entrySet()) {
+                        methodDependencyMap.get(t).entrySet()) {
                     Object[] parameters = e.getValue().stream()
                             .map(result::get)
                             .toArray();
@@ -94,6 +112,24 @@ public class Bootstrap {
             }
         }
         return result;
+    }
+
+    private Optional<Constructor> scanConstructor(Class<?> t) throws Exception {
+        Constructor[] constructors = t.getDeclaredConstructors();
+        Constructor[] results = new Constructor[constructors.length];
+        int count = 0;
+        for (Constructor c :
+                constructors) {
+            if (c.isAnnotationPresent(Autowired.class)){
+                results[count++] = c;
+            }
+        }
+        if(count > 1){
+            throw new Exception(String.format("%s有多个被@Autowired注解的构造函数", t));
+        }
+
+        if (count == 0) return Optional.empty();
+        else return Optional.of(results[0]);
     }
 
     //寻找field对应的实体类

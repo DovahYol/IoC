@@ -1,6 +1,6 @@
 package com.zb.ioc;
 
-import com.zb.ioc.annotation.Antowired;
+import com.zb.ioc.annotation.Autowired;
 import com.zb.ioc.annotation.Component;
 import com.zb.ioc.utils.Digraph;
 import org.junit.BeforeClass;
@@ -12,7 +12,7 @@ import static org.junit.Assert.assertEquals;
 
 @Component
 public class BasicTest {
-    @Antowired
+    @Autowired
     private Song song;
 
     private Song anotherSong;
@@ -26,7 +26,7 @@ public class BasicTest {
         return anotherSong;
     }
 
-    @Antowired
+    @Autowired
     private void setAnotherSong(Song song, Singer singer) {
         anotherSong = song;
         anothersinger = singer;
