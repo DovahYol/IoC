@@ -8,5 +8,5 @@ import java.lang.annotation.Target;
 @Target(ElementType.TYPE)
 @Retention(RetentionPolicy.RUNTIME) //运行时可以去到
 public @interface Component {
-
+    String value() default "";
 }
