@@ -2,6 +2,7 @@ package com.zb.ioc;
 
 import com.zb.ioc.annotation.Autowired;
 import com.zb.ioc.annotation.Component;
+import com.zb.ioc.annotation.Qualifier;
 
 @Component
 public class ChineseSong implements Song{

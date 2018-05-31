@@ -160,4 +160,25 @@ public class Bootstrap {
 
         return results.get(0);
     }
+
+    private static class ComponentManager{
+        private String name;
+        private Class component;
+
+        public String getName() {
+            return name;
+        }
+
+        public void setName(String name) {
+            this.name = name;
+        }
+
+        public Class getComponent() {
+            return component;
+        }
+
+        public void setComponent(Class component) {
+            this.component = component;
+        }
+    }
 }
