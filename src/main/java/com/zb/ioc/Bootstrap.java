@@ -5,6 +5,7 @@ import com.zb.ioc.annotation.Component;
 import com.zb.ioc.utils.Digraph;
 import org.reflections.Reflections;
 
+import java.lang.annotation.Annotation;
 import java.lang.reflect.*;
 import java.util.*;
 
@@ -13,6 +14,8 @@ public class Bootstrap {
         Reflections reflections = new Reflections(packageName);
         //支持类注解提供依赖
         Set<Class<?>> annotated = reflections.getTypesAnnotatedWith(Component.class);
+        //named components
+        List<NamedComponent> namedComponents = NamedComponent.newList(annotated.iterator());
         Digraph<Class> digraph = new Digraph<>();
         //属性依赖字典
         Map< Class, Map< Field, Class > > fieldDependencyMap = new HashMap<>();
@@ -161,7 +164,7 @@ public class Bootstrap {
         return results.get(0);
     }
 
-    private static class ComponentManager{
+    private static class NamedComponent {
         private String name;
         private Class component;
 
@@ -179,6 +182,29 @@ public class Bootstrap {
 
         public void setComponent(Class component) {
             this.component = component;
+        }
+
+        public NamedComponent(){}
+
+        private static List<NamedComponent> newList(Iterator<Class<?>> iterator){
+            List<NamedComponent> namedComponents = new ArrayList<>();
+            iterator.forEachRemaining(it -> {
+                NamedComponent namedComponent = new NamedComponent();
+                namedComponent.setComponent(it);
+                Annotation annotation = it.getAnnotation(Component.class);
+                Class type = annotation.annotationType();
+                for (Method method : type.getDeclaredMethods()) {
+                    Object value;
+                    try {
+                        value = method.invoke(annotation);
+                        namedComponent.setName((String)value);
+                    } catch (IllegalAccessException | InvocationTargetException e) {
+                        e.printStackTrace();
+                    }
+                }
+                namedComponents.add(namedComponent);
+            });
+            return namedComponents;
         }
     }
 }
