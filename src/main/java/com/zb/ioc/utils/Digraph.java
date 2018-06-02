@@ -23,6 +23,10 @@ public class Digraph<T> {
         reverseMap.get(w).add(v);
     }
 
+    public void addEdge(List<T> v, T w){
+        v.forEach(it -> addEdge(it, w));
+    }
+
     public Set<T> getAllStartpoints(T w){
         return reverseMap.getOrDefault(w, new HashSet<>());
     }

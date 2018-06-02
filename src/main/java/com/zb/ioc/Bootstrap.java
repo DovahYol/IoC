@@ -2,7 +2,10 @@ package com.zb.ioc;
 
 import com.zb.ioc.annotation.Autowired;
 import com.zb.ioc.annotation.Component;
+import com.zb.ioc.annotation.Qualifier;
+import com.zb.ioc.utils.AnnotationPropertyResolver;
 import com.zb.ioc.utils.Digraph;
+import com.zb.ioc.utils.NamedComponentScanner;
 import org.reflections.Reflections;
 
 import java.lang.annotation.Annotation;
@@ -10,12 +13,18 @@ import java.lang.reflect.*;
 import java.util.*;
 
 public class Bootstrap {
-    public Map<Class, Object> createBeanMap(String packageName) throws Exception {
+    private final Set<Class<?>> annotated;
+    private final NamedComponentScanner namedComponentScanner;
+
+    Bootstrap(String packageName){
         Reflections reflections = new Reflections(packageName);
         //支持类注解提供依赖
-        Set<Class<?>> annotated = reflections.getTypesAnnotatedWith(Component.class);
-        //named components
-        List<NamedComponent> namedComponents = NamedComponent.newList(annotated.iterator());
+        annotated = reflections.getTypesAnnotatedWith(Component.class);
+        //Named Component
+        namedComponentScanner = new NamedComponentScanner(annotated.iterator());
+    }
+
+    public Map<Class, Object> createBeanMap() throws Exception {
         Digraph<Class> digraph = new Digraph<>();
         //属性依赖字典
         Map< Class, Map< Field, Class > > fieldDependencyMap = new HashMap<>();
@@ -34,7 +43,13 @@ public class Bootstrap {
                  fields) {
                 if(f.isAnnotationPresent(Autowired.class)){
                     f.setAccessible(true);//private的field也可以注入
-                    Class concreteClass = scanImpl(annotated.iterator(), f.getType());
+                    Class concreteClass;
+                    if(f.isAnnotationPresent(Qualifier.class)){
+                        String name = AnnotationPropertyResolver.getQualifierValue(f);
+                        concreteClass = namedComponentScanner.scanImpl(name, f.getType());
+                    }else{
+                        concreteClass = scanImpl(annotated.iterator(), f.getType());
+                    }
                     fieldMap.put(f, concreteClass);
                     digraph.addEdge(concreteClass, t);
                 }
@@ -47,15 +62,9 @@ public class Bootstrap {
                     methods) {
                 if (m.isAnnotationPresent(Autowired.class)){
                     m.setAccessible(true);
-                    methodMap.put(m, new ArrayList<>());
-                    parameterTypes = methodMap.get(m);
-                    Class[] classes = m.getParameterTypes();
-                    for (Class parameterType :
-                            classes) {
-                        Class concreteClass = scanImpl(annotated.iterator(), parameterType);
-                        parameterTypes.add(concreteClass);
-                        digraph.addEdge(concreteClass, t);
-                    }
+                    List<Class> classes = getParametersClasses(m);
+                    methodMap.put(m, classes);
+                    digraph.addEdge(classes, t);
                 }
             }
             //构造构造函数依赖字典
@@ -64,17 +73,10 @@ public class Bootstrap {
             Optional<Constructor> c = scanConstructor(t);
             if (c.isPresent()){
                 c.get().setAccessible(true);
-                constructorMap.put(c.get(), new ArrayList<>());
-                parameterTypes = constructorMap.get(c.get());
-                Class[] classes = c.get().getParameterTypes();
-                for (Class parameterType :
-                        classes) {
-                    Class concreteClass = scanImpl(annotated.iterator(), parameterType);
-                    parameterTypes.add(concreteClass);
-                    digraph.addEdge(concreteClass, t);
-                }
+                List<Class> classes = getParametersClasses(c.get());
+                constructorMap.put(c.get(), classes);
+                digraph.addEdge(classes, t);
             }
-
         }
         List<Class> list = digraph.getTopologicalList();
         if(digraph.hasErrors()){
@@ -87,7 +89,6 @@ public class Bootstrap {
                 list) {
             if (digraph.getAllStartpoints(t).size() == 0) {
                 /**
-                 * TODO
                  * 以后要做检查，看看是否有无参数构造函数。
                  * 现在先用Class来做识别，以后有来自运行时jar包的注入时，会改动
                  */
@@ -158,53 +159,63 @@ public class Bootstrap {
         if(results.size() == 0){
             throw new Exception(String.format("并未找到%s的实现类", declaringClass));
         }else if(results.size() > 1){
-            throw new Exception(String.format("存在多个%s的实现类", declaringClass));
+            Class[] filteredResults = results.stream()
+                    .filter(it -> {
+                        String name = "";
+                        try {
+                            name = AnnotationPropertyResolver.getComponentValue(it);
+                        } catch (Exception e) {
+                            e.printStackTrace();
+                        }
+                        return "".equals(name);
+                    })
+                    .toArray(Class[]::new);
+            if(filteredResults.length == 0){
+                throw new Exception(String.format("并未找到%s的实现类", declaringClass));
+            }else if(filteredResults.length > 1){
+                throw new Exception(String.format("存在多个%s的实现类", declaringClass));
+            }else{
+                return filteredResults[0];
+            }
         }
 
         return results.get(0);
     }
 
-    private static class NamedComponent {
-        private String name;
-        private Class component;
+    private List<Class> getParametersClasses(Method m) throws Exception {
+        Class[] classes = m.getParameterTypes();
+        Annotation[][] annotationMatrix = m.getParameterAnnotations();
+        return getParametersClasses(classes, annotationMatrix);
+    }
 
-        public String getName() {
-            return name;
-        }
+    private List<Class> getParametersClasses(Constructor m) throws Exception {
+        Class[] classes = m.getParameterTypes();
+        Annotation[][] annotationMatrix = m.getParameterAnnotations();
+        return getParametersClasses(classes, annotationMatrix);
+    }
 
-        public void setName(String name) {
-            this.name = name;
-        }
-
-        public Class getComponent() {
-            return component;
-        }
-
-        public void setComponent(Class component) {
-            this.component = component;
-        }
-
-        public NamedComponent(){}
-
-        private static List<NamedComponent> newList(Iterator<Class<?>> iterator){
-            List<NamedComponent> namedComponents = new ArrayList<>();
-            iterator.forEachRemaining(it -> {
-                NamedComponent namedComponent = new NamedComponent();
-                namedComponent.setComponent(it);
-                Annotation annotation = it.getAnnotation(Component.class);
-                Class type = annotation.annotationType();
-                for (Method method : type.getDeclaredMethods()) {
-                    Object value;
-                    try {
-                        value = method.invoke(annotation);
-                        namedComponent.setName((String)value);
-                    } catch (IllegalAccessException | InvocationTargetException e) {
-                        e.printStackTrace();
-                    }
+    private List<Class> getParametersClasses(Class[] classes, Annotation[][] annotationMatrix) throws Exception {
+        List<Class> results = new ArrayList<>();
+        //classes和annotationMatrix的长度应该是相同的
+        for (int i = 0; i < classes.length; i++) {
+            Annotation[] annotations = annotationMatrix[i];
+            boolean isQualifier = false;
+            Class concreteClass;
+            for (Annotation annotation:
+                    annotations) {
+                if(Qualifier.class.isAssignableFrom(annotation.annotationType())){
+                    isQualifier = true;
+                    String name = AnnotationPropertyResolver.getQualifierValue(annotation);
+                    concreteClass = namedComponentScanner.scanImpl(name, classes[i]);
+                    results.add(concreteClass);
+                    break;
                 }
-                namedComponents.add(namedComponent);
-            });
-            return namedComponents;
+            }
+            if(!isQualifier){
+                concreteClass = scanImpl(annotated.iterator(), classes[i]);
+                results.add(concreteClass);
+            }
         }
+        return results;
     }
 }

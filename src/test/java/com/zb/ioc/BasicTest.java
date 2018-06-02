@@ -2,6 +2,7 @@ package com.zb.ioc;
 
 import com.zb.ioc.annotation.Autowired;
 import com.zb.ioc.annotation.Component;
+import com.zb.ioc.annotation.Qualifier;
 import com.zb.ioc.utils.Digraph;
 import org.junit.BeforeClass;
 import org.junit.Test;
@@ -36,8 +37,8 @@ public class BasicTest {
 
     @BeforeClass
     public static void setUpBeforeClass() throws Exception {
-        Bootstrap bootstrap = new Bootstrap();
-        maps =  bootstrap.createBeanMap("com.zb.ioc");
+        Bootstrap bootstrap = new Bootstrap("com.zb.ioc");
+        maps =  bootstrap.createBeanMap();
     }
     @Test
     public void test001() {
@@ -94,5 +95,30 @@ public class BasicTest {
         ChineseSong chineseSong = (ChineseSong)maps.get(ChineseSong.class);
         assertEquals(chineseSong.getSinger().name(),
                 "Jay Chou");
+    }
+
+    @Autowired
+    @Qualifier("American")
+    private Song americanSong;
+
+    @Test
+    public void test006() {
+        BasicTest basicTest = (BasicTest)maps.get(BasicTest.class);
+        assertEquals(basicTest.americanSong.getName(),
+                "American Song");
+    }
+
+    @Test
+    public void test007() {
+        BasicTest basicTest = (BasicTest)maps.get(BasicTest.class);
+        assertEquals(((AmericanSong)basicTest.americanSong).getGenre().getName(),
+                "County Genre");
+    }
+
+    @Test
+    public void test008() {
+        BasicTest basicTest = (BasicTest)maps.get(BasicTest.class);
+        assertEquals(((AmericanSong)basicTest.americanSong).getSinger().name(),
+                "Taylor Swift");
     }
 }
