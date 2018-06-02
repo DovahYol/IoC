@@ -6,6 +6,7 @@ import com.zb.ioc.annotation.Qualifier;
 import com.zb.ioc.utils.AnnotationPropertyResolver;
 import com.zb.ioc.utils.Digraph;
 import com.zb.ioc.utils.NamedComponentScanner;
+import com.zb.ioc.utils.TypedComponentScanner;
 import org.reflections.Reflections;
 
 import java.lang.annotation.Annotation;
@@ -15,6 +16,7 @@ import java.util.*;
 public class Bootstrap {
     private final Set<Class<?>> annotated;
     private final NamedComponentScanner namedComponentScanner;
+    private final TypedComponentScanner typedComponentScanner;
 
     Bootstrap(String packageName){
         Reflections reflections = new Reflections(packageName);
@@ -22,6 +24,8 @@ public class Bootstrap {
         annotated = reflections.getTypesAnnotatedWith(Component.class);
         //Named Component
         namedComponentScanner = new NamedComponentScanner(annotated.iterator());
+        //Typed Componet
+        typedComponentScanner = new TypedComponentScanner(annotated.iterator());
     }
 
     public Map<Class, Object> createBeanMap() throws Exception {
@@ -48,7 +52,7 @@ public class Bootstrap {
                         String name = AnnotationPropertyResolver.getQualifierValue(f);
                         concreteClass = namedComponentScanner.scanImpl(name, f.getType());
                     }else{
-                        concreteClass = scanImpl(annotated.iterator(), f.getType());
+                        concreteClass = typedComponentScanner.scanImpl(f.getType());
                     }
                     fieldMap.put(f, concreteClass);
                     digraph.addEdge(concreteClass, t);
@@ -147,41 +151,6 @@ public class Bootstrap {
         else return Optional.of(results[0]);
     }
 
-    //寻找field对应的实体类
-    private Class scanImpl(Iterator<Class<?>> concreteClasses, Class declaringClass) throws Exception {
-        List<Class> results = new ArrayList<>();
-        while(concreteClasses.hasNext()){
-            Class<?> c = concreteClasses.next();
-            if(declaringClass.isAssignableFrom(c)){
-                results.add(c);
-            }
-        }
-        if(results.size() == 0){
-            throw new Exception(String.format("并未找到%s的实现类", declaringClass));
-        }else if(results.size() > 1){
-            Class[] filteredResults = results.stream()
-                    .filter(it -> {
-                        String name = "";
-                        try {
-                            name = AnnotationPropertyResolver.getComponentValue(it);
-                        } catch (Exception e) {
-                            e.printStackTrace();
-                        }
-                        return "".equals(name);
-                    })
-                    .toArray(Class[]::new);
-            if(filteredResults.length == 0){
-                throw new Exception(String.format("并未找到%s的实现类", declaringClass));
-            }else if(filteredResults.length > 1){
-                throw new Exception(String.format("存在多个%s的实现类", declaringClass));
-            }else{
-                return filteredResults[0];
-            }
-        }
-
-        return results.get(0);
-    }
-
     private List<Class> getParametersClasses(Method m) throws Exception {
         Class[] classes = m.getParameterTypes();
         Annotation[][] annotationMatrix = m.getParameterAnnotations();
@@ -212,7 +181,7 @@ public class Bootstrap {
                 }
             }
             if(!isQualifier){
-                concreteClass = scanImpl(annotated.iterator(), classes[i]);
+                concreteClass = typedComponentScanner.scanImpl(classes[i]);
                 results.add(concreteClass);
             }
         }
