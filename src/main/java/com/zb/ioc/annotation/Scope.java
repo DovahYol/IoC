@@ -8,5 +8,5 @@ import java.lang.annotation.Target;
 @Target(value={ElementType.TYPE, ElementType.METHOD})
 @Retention(value = RetentionPolicy.RUNTIME)
 public @interface Scope {
-    String value();
+    ScopeType value();
 }

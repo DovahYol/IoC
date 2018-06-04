@@ -1,8 +1,6 @@
 package com.zb.ioc;
 
-import com.zb.ioc.annotation.Autowired;
-import com.zb.ioc.annotation.Component;
-import com.zb.ioc.annotation.Qualifier;
+import com.zb.ioc.annotation.*;
 import com.zb.ioc.utils.AnnotationPropertyResolver;
 import com.zb.ioc.utils.Digraph;
 import com.zb.ioc.utils.NamedComponentScanner;
@@ -17,28 +15,39 @@ public class Bootstrap {
     private final Set<Class<?>> annotated;
     private final NamedComponentScanner namedComponentScanner;
     private final TypedComponentScanner typedComponentScanner;
+    //BeanMap缓存
+    private final Map<Class, Object> cachedBeanMap = new HashMap<>();
+    //Scope字典
+    private final Map<Class, ScopeType> scopeTypeMap = new HashMap<>();
 
-    Bootstrap(String packageName){
+    Bootstrap(String packageName) throws Exception {
         Reflections reflections = new Reflections(packageName);
         //支持类注解提供依赖
         annotated = reflections.getTypesAnnotatedWith(Component.class);
         //Named Component
         namedComponentScanner = new NamedComponentScanner(annotated.iterator());
-        //Typed Componet
+        //Typed Component
         typedComponentScanner = new TypedComponentScanner(annotated.iterator());
+        //构建依赖
+        createBeanMap();
     }
 
-    public Map<Class, Object> createBeanMap() throws Exception {
+    private void createBeanMap() throws Exception {
         Digraph<Class> digraph = new Digraph<>();
         //属性依赖字典
-        Map< Class, Map< Field, Class > > fieldDependencyMap = new HashMap<>();
+        Map<Class, Map<Field, Class>> fieldDependencyMap = new HashMap<>();
         //方法依赖字典
-        Map< Class, Map< Method, List<Class> > > methodDependencyMap = new HashMap<>();
+        Map<Class, Map<Method, List<Class>>> methodDependencyMap = new HashMap<>();
         //构造函数依赖字典
-        Map< Class, Map< Constructor, List<Class> > > constructorDependencyMap = new HashMap<>();
-        List<Class> parameterTypes;
+        Map<Class, Map<Constructor, List<Class>>> constructorDependencyMap = new HashMap<>();
         for (Class<?> t:
                 annotated) {
+            //构造Scope字典
+            if(t.isAnnotationPresent(Scope.class)){
+                scopeTypeMap.put(t, AnnotationPropertyResolver.getScopeType(t));
+            }else{
+                scopeTypeMap.put(t, ScopeType.SINGLETON);
+            }
             //构造属性依赖字典
             Map< Field, Class > fieldMap = new HashMap<>();
             fieldDependencyMap.put(t, fieldMap);
@@ -87,8 +96,6 @@ public class Bootstrap {
             throw new Exception(digraph.getAllErrors().get(0));
         }
 
-        Map<Class, Object> result = new HashMap<>();
-
         for (Class t :
                 list) {
             if (digraph.getAllStartpoints(t).size() == 0) {
@@ -96,7 +103,7 @@ public class Bootstrap {
                  * 以后要做检查，看看是否有无参数构造函数。
                  * 现在先用Class来做识别，以后有来自运行时jar包的注入时，会改动
                  */
-                result.put(t, t.getConstructor().newInstance());
+                cachedBeanMap.put(t, t.getConstructor().newInstance());
             }else{
                 //创建一个实例
                 Object object = null;
@@ -106,31 +113,38 @@ public class Bootstrap {
                 for (Map.Entry< Constructor, List<Class> > e:
                         constructorDependencyMap.get(t).entrySet()) {
                     Object[] parameters = e.getValue().stream()
-                            .map(result::get)
+                            .map(cachedBeanMap::get)
                             .toArray();
                     object = e.getKey().newInstance(parameters);
                 }
                 //设置property的值
                 for (Map.Entry< Field, Class > e:
                         fieldDependencyMap.get(t).entrySet()) {
-                    if(result.get(e.getValue()) == null){
+                    if(cachedBeanMap.get(e.getValue()) == null){
                         throw new NullPointerException();
                     }
-                    e.getKey().set(object, result.get(e.getValue()));
+                    e.getKey().set(object, cachedBeanMap.get(e.getValue()));
                 }
                 //调用被@Autowired注解的方法
                 for (Map.Entry< Method, List<Class> > e:
                         methodDependencyMap.get(t).entrySet()) {
                     Object[] parameters = e.getValue().stream()
-                            .map(result::get)
+                            .map(cachedBeanMap::get)
                             .toArray();
                     e.getKey().invoke(object, parameters);
                 }
 
-                result.put(t, object);
+                cachedBeanMap.put(t, object);
             }
         }
-        return result;
+    }
+
+    public Object getBean(Class requiredType){
+        if(scopeTypeMap.get(requiredType) == ScopeType.SINGLETON){
+            return cachedBeanMap.get(requiredType);
+        }else{
+            return cachedBeanMap.get(requiredType);
+        }
     }
 
     private Optional<Constructor> scanConstructor(Class<?> t) throws Exception {

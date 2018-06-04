@@ -7,8 +7,6 @@ import com.zb.ioc.utils.Digraph;
 import org.junit.BeforeClass;
 import org.junit.Test;
 
-import java.util.Map;
-
 import static org.junit.Assert.assertEquals;
 
 @Component
@@ -17,7 +15,7 @@ public class BasicTest {
     private Song song;
 
     private Song anotherSong;
-    private Singer anothersinger;
+    private Singer anotherSinger;
 
     public Song getSong() {
         return song;
@@ -30,19 +28,19 @@ public class BasicTest {
     @Autowired
     private void setAnotherSong(Song song, Singer singer) {
         anotherSong = song;
-        anothersinger = singer;
+        anotherSinger = singer;
     }
 
-    private static Map<Class, Object> maps;
+    private static Bootstrap bootstrap;
 
     @BeforeClass
     public static void setUpBeforeClass() throws Exception {
-        Bootstrap bootstrap = new Bootstrap("com.zb.ioc");
-        maps =  bootstrap.createBeanMap();
+        bootstrap = new Bootstrap("com.zb.ioc");
     }
+
     @Test
     public void test001() {
-        BasicTest basicTest = (BasicTest)maps.get(BasicTest.class);
+        BasicTest basicTest = (BasicTest)bootstrap.getBean(BasicTest.class);
         assertEquals(basicTest.getSong().getName(), "Chinese GenreChinese");
     }
 
@@ -85,14 +83,14 @@ public class BasicTest {
 
     @Test
     public void test004() {
-        BasicTest basicTest = (BasicTest)maps.get(BasicTest.class);
-        assertEquals(basicTest.getAnotherSong().getName() + " " + basicTest.anothersinger.name(),
+        BasicTest basicTest = (BasicTest)bootstrap.getBean(BasicTest.class);
+        assertEquals(basicTest.getAnotherSong().getName() + " " + basicTest.anotherSinger.name(),
                 "Chinese GenreChinese Jay Chou");
     }
 
     @Test
     public void test005() {
-        ChineseSong chineseSong = (ChineseSong)maps.get(ChineseSong.class);
+        ChineseSong chineseSong = (ChineseSong)bootstrap.getBean(ChineseSong.class);
         assertEquals(chineseSong.getSinger().name(),
                 "Jay Chou");
     }
@@ -103,21 +101,21 @@ public class BasicTest {
 
     @Test
     public void test006() {
-        BasicTest basicTest = (BasicTest)maps.get(BasicTest.class);
+        BasicTest basicTest = (BasicTest)bootstrap.getBean(BasicTest.class);
         assertEquals(basicTest.americanSong.getName(),
                 "American Song");
     }
 
     @Test
     public void test007() {
-        BasicTest basicTest = (BasicTest)maps.get(BasicTest.class);
+        BasicTest basicTest = (BasicTest)bootstrap.getBean(BasicTest.class);
         assertEquals(((AmericanSong)basicTest.americanSong).getGenre().getName(),
                 "County Genre");
     }
 
     @Test
     public void test008() {
-        BasicTest basicTest = (BasicTest)maps.get(BasicTest.class);
+        BasicTest basicTest = (BasicTest)bootstrap.getBean(BasicTest.class);
         assertEquals(((AmericanSong)basicTest.americanSong).getSinger().name(),
                 "Taylor Swift");
     }
