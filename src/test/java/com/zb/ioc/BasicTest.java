@@ -8,6 +8,7 @@ import org.junit.BeforeClass;
 import org.junit.Test;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertNotEquals;
 
 @Component
 public class BasicTest {
@@ -118,5 +119,11 @@ public class BasicTest {
         BasicTest basicTest = (BasicTest)bootstrap.getBean(BasicTest.class);
         assertEquals(((AmericanSong)basicTest.americanSong).getSinger().name(),
                 "Taylor Swift");
+    }
+
+    @Test
+    public void test009() {
+        BasicTest basicTest = (BasicTest)bootstrap.getBean(BasicTest.class);
+        assertNotEquals(basicTest.song, basicTest.anotherSong);
     }
 }

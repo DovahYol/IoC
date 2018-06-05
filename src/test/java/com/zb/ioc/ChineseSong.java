@@ -1,10 +1,9 @@
 package com.zb.ioc;
 
-import com.zb.ioc.annotation.Autowired;
-import com.zb.ioc.annotation.Component;
-import com.zb.ioc.annotation.Qualifier;
+import com.zb.ioc.annotation.*;
 
 @Component
+@Scope(ScopeType.PROTOTYPE)
 public class ChineseSong implements Song{
     @Autowired
     private Genre genre;
