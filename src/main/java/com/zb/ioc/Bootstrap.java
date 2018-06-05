@@ -27,8 +27,6 @@ public class Bootstrap {
     private final Map<Class, Map<Constructor, List<Class>>> constructorDependencyMap = new HashMap<>();
     //存放各Component之间的依赖
     private final Digraph<Class> digraph = new Digraph<>();
-    //依赖的拓扑排序
-    private List<Class> topologicalList;
 
     Bootstrap(String packageName) throws Exception {
         Reflections reflections = new Reflections(packageName);
@@ -40,7 +38,6 @@ public class Bootstrap {
         typedComponentScanner = new TypedComponentScanner(annotated.iterator());
         //构建依赖
         buildDependency();
-        buildCachedBeanMap();
     }
 
     private void buildDependency() throws Exception {
@@ -95,81 +92,75 @@ public class Bootstrap {
                 digraph.addEdge(classes, t);
             }
         }
-        topologicalList = digraph.getTopologicalList();
         if(digraph.hasErrors()){
             throw new Exception(digraph.getAllErrors().get(0));
         }
     }
 
-    private void buildCachedBeanMap() throws NoSuchMethodException, IllegalAccessException, InvocationTargetException, InstantiationException {
-        for (Class t :
-                topologicalList) {
-            putBean(t, cachedBeanMap);
-        }
-    }
-
-    private void putBean(Class t, Map<Class, Object> requiredMap) throws NoSuchMethodException, IllegalAccessException, InvocationTargetException, InstantiationException {
+    private Object putBean(Class<?> t, Map<Class, Object> singletonMap) throws NoSuchMethodException, IllegalAccessException, InvocationTargetException, InstantiationException {
+        Object object = null;
         if (digraph.getAllStartpoints(t).size() == 0) {
-            /**
-             * 以后要做检查，看看是否有无参数构造函数。
-             * 现在先用Class来做识别，以后有来自运行时jar包的注入时，会改动
+            /*
+              以后要做检查，看看是否有无参数构造函数。
+              现在先用Class来做识别，以后有来自运行时jar包的注入时，会改动
              */
-            requiredMap.put(t, t.getConstructor().newInstance());
+            object = t.getConstructor().newInstance();
         }else{
             //创建一个实例
-            Object object = null;
             if(constructorDependencyMap.get(t).size() == 0){
                 object = t.getConstructor().newInstance();
             }
             for (Map.Entry< Constructor, List<Class> > e:
                     constructorDependencyMap.get(t).entrySet()) {
-                Object[] parameters = e.getValue().stream()
-                        .map(requiredMap::get)
-                        .toArray();
-                object = e.getKey().newInstance(parameters);
+                List<Object> parameters = new ArrayList<>();
+                for (Class item :
+                        e.getValue()) {
+                    if(singletonMap.get(item) == null){
+                        parameters.add(putBean(item, singletonMap));
+                    }else{
+                        parameters.add(singletonMap.get(item));
+                    }
+                }
+                object = e.getKey().newInstance(parameters.toArray());
             }
             //设置property的值
             for (Map.Entry< Field, Class > e:
                     fieldDependencyMap.get(t).entrySet()) {
-                if(requiredMap.get(e.getValue()) == null){
-                    throw new NullPointerException();
+                if(singletonMap.get(e.getValue()) == null){
+                    e.getKey().set(object, putBean(e.getValue(), singletonMap));
+                }else{
+                    e.getKey().set(object, singletonMap.get(e.getValue()));
                 }
-                e.getKey().set(object, requiredMap.get(e.getValue()));
             }
             //调用被@Autowired注解的方法
             for (Map.Entry< Method, List<Class> > e:
                     methodDependencyMap.get(t).entrySet()) {
-                Object[] parameters = e.getValue().stream()
-                        .map(requiredMap::get)
-                        .toArray();
-                e.getKey().invoke(object, parameters);
+                List<Object> parameters = new ArrayList<>();
+                for (Class item :
+                        e.getValue()) {
+                    if(singletonMap.get(item) == null){
+                        parameters.add(putBean(item, singletonMap));
+                    }else{
+                        parameters.add(singletonMap.get(item));
+                    }
+                }
+                e.getKey().invoke(object, parameters.toArray());
             }
-
-            requiredMap.put(t, object);
         }
+        //若是单例模式，才缓存
+        if(scopeTypeMap.get(t) == ScopeType.SINGLETON){
+            singletonMap.put(t, object);
+        }
+        return object;
     }
 
     public Object getBean(Class requiredType){
-        if(scopeTypeMap.get(requiredType) == ScopeType.SINGLETON){
-            return cachedBeanMap.get(requiredType);
-        }else{
-            Map<Class, Object> temp = new HashMap<>();
-            for (Class t :
-                    topologicalList) {
-                //如果是单例模式的话就直接取用，否则就重新构造
-                if(scopeTypeMap.get(t) == ScopeType.SINGLETON){
-                    temp.put(t, cachedBeanMap.get(t));
-                    continue;
-                }
-                try{
-                    putBean(t, temp);
-                }catch (NoSuchMethodException | InstantiationException | IllegalAccessException | InvocationTargetException e) {
-
-                }
-                if(t == requiredType) break;
-            }
-            return temp.get(requiredType);
+        try {
+            return putBean(requiredType, cachedBeanMap);
+        } catch (NoSuchMethodException | IllegalAccessException | InvocationTargetException | InstantiationException e) {
+            e.printStackTrace();
         }
+        return cachedBeanMap.get(requiredType);
     }
 
     private Optional<Constructor> scanConstructor(Class<?> t) throws Exception {
