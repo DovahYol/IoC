@@ -19,7 +19,7 @@ public class TypedComponentScanner implements ComponentScanner {
                 .filter(declaringClass::isAssignableFrom)
                 .toArray(Class[]::new);
         if(results.length == 0){
-            throw new Exception(String.format("并未找到%s的实现类", declaringClass));
+            return null;
         }else if(results.length > 1){
             Class[] filteredResults = Stream.of(results)
                     .filter(it -> {
@@ -33,7 +33,7 @@ public class TypedComponentScanner implements ComponentScanner {
                     })
                     .toArray(Class[]::new);
             if(filteredResults.length == 0){
-                throw new Exception(String.format("并未找到%s的实现类", declaringClass));
+                return null;
             }else if(filteredResults.length > 1){
                 throw new Exception(String.format("存在多个%s的实现类", declaringClass));
             }else{

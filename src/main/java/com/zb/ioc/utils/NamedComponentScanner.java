@@ -37,7 +37,7 @@ public class NamedComponentScanner implements ComponentScanner{
                 .map(it -> it.component)
                 .toArray(Class[]::new);
         if(results.length == 0){
-            throw new Exception(String.format("并未找到名字为%s的%s的实现类", name, component));
+            return null;
         }else if(results.length > 1){
             throw new Exception(String.format("存在多个名字为%s的%s的实现类", name, component));
         }
