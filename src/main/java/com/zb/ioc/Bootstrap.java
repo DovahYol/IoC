@@ -16,7 +16,7 @@ public class Bootstrap {
     //BeanMap缓存
     private final Map<DependencySource, Object> cachedBeanMap = new HashMap<>();
     //Scope字典
-    private final Map<Class, ScopeType> scopeTypeMap = new HashMap<>();
+    private final Map<DependencySource, ScopeType> scopeTypeMap = new HashMap<>();
     //属性依赖字典
     private final Map<Class, Map<Field, DependencySource>> fieldDependencyMap = new HashMap<>();
     //方法依赖字典
@@ -44,9 +44,9 @@ public class Bootstrap {
                 annotated) {
             //构造Scope字典
             if(t.isAnnotationPresent(Scope.class)){
-                scopeTypeMap.put(t, AnnotationPropertyResolver.getScopeType(t));
+                scopeTypeMap.put(new ComponentDependencySource(t), AnnotationPropertyResolver.getScopeType(t));
             }else{
-                scopeTypeMap.put(t, ScopeType.SINGLETON);
+                scopeTypeMap.put(new ComponentDependencySource(t), ScopeType.SINGLETON);
             }
             //构造属性依赖字典
             Map< Field, DependencySource > fieldMap = new HashMap<>();
@@ -65,6 +65,7 @@ public class Bootstrap {
                             dependencySource = new ComponentDependencySource(concreteClass);
                         }else{
                             dependencySource = beanMethodScanner.scanDependency(name, f.getType());
+                            digraph.addEdge(new ComponentDependencySource(dependencySource.getComponentClass()), dependencySource);
                         }
                     }else{
                         concreteClass = typedComponentScanner.scanImpl(f.getType());
@@ -72,6 +73,7 @@ public class Bootstrap {
                             dependencySource = new ComponentDependencySource(concreteClass);
                         }else{
                             dependencySource = beanMethodScanner.scanDependency(f.getType());
+                            digraph.addEdge(new ComponentDependencySource(dependencySource.getComponentClass()), dependencySource);
                         }
                     }
 
@@ -90,6 +92,13 @@ public class Bootstrap {
                     List<DependencySource> dependencySources = getParametersDependencySource(m);
                     methodMap.put(m, dependencySources);
                     digraph.addEdge(dependencySources, new ComponentDependencySource(t));
+                }
+                if(m.isAnnotationPresent(Bean.class)){
+                    if(t.isAnnotationPresent(Scope.class)){
+                        scopeTypeMap.put(new BeanDependencySource(t, m), AnnotationPropertyResolver.getScopeType(m));
+                    }else{
+                        scopeTypeMap.put(new BeanDependencySource(t, m), ScopeType.SINGLETON);
+                    }
                 }
             }
             //构造构造函数依赖字典
@@ -118,6 +127,7 @@ public class Bootstrap {
         }else{
             if(t instanceof BeanDependencySource){
                 ComponentDependencySource enclosingSource = new ComponentDependencySource(t.getComponentClass());
+                //寻找包含类
                 Object enclosingObject;
                 if((enclosingObject = singletonMap.get(enclosingSource)) == null){
                     enclosingObject = putBean(enclosingSource, singletonMap);
@@ -132,14 +142,19 @@ public class Bootstrap {
                         parameters.add(singletonMap.get(item));
                     }
                 }
-                return ((BeanDependencySource)t).getBeanMethod().invoke(enclosingObject, parameters);
+                object =((BeanDependencySource)t).getBeanMethod().invoke(enclosingObject, parameters);
+                //若是单例模式，才缓存
+                if(scopeTypeMap.get(t) == ScopeType.SINGLETON){
+                    singletonMap.put(t, object);
+                }
+                return object;
             }
             //创建一个实例
-            if(constructorDependencyMap.get(t).size() == 0){
+            if(constructorDependencyMap.get(t.getComponentClass()).size() == 0){
                 object = t.getComponentClass().getConstructor().newInstance();
             }
             for (Map.Entry< Constructor, List<DependencySource> > e:
-                    constructorDependencyMap.get(t).entrySet()) {
+                    constructorDependencyMap.get(t.getComponentClass()).entrySet()) {
                 List<Object> parameters = new ArrayList<>();
                 for (DependencySource item :
                         e.getValue()) {
@@ -153,7 +168,7 @@ public class Bootstrap {
             }
             //设置property的值
             for (Map.Entry< Field, DependencySource > e:
-                    fieldDependencyMap.get(t).entrySet()) {
+                    fieldDependencyMap.get(t.getComponentClass()).entrySet()) {
                 if(singletonMap.get(e.getValue()) == null){
                     e.getKey().set(object, putBean(e.getValue(), singletonMap));
                 }else{
@@ -162,7 +177,7 @@ public class Bootstrap {
             }
             //调用被@Autowired注解的方法
             for (Map.Entry< Method, List<DependencySource> > e:
-                    methodDependencyMap.get(t).entrySet()) {
+                    methodDependencyMap.get(t.getComponentClass()).entrySet()) {
                 List<Object> parameters = new ArrayList<>();
                 for (DependencySource item :
                         e.getValue()) {
@@ -188,7 +203,7 @@ public class Bootstrap {
         } catch (NoSuchMethodException | IllegalAccessException | InvocationTargetException | InstantiationException e) {
             e.printStackTrace();
         }
-        return cachedBeanMap.get(requiredType);
+        return cachedBeanMap.get(new ComponentDependencySource(requiredType));
     }
 
     private Optional<Constructor> scanConstructor(Class<?> t) throws Exception {
