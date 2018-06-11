@@ -44,12 +44,12 @@ public class BeanMethodScanner {
         }
     }
 
-    public BeanDependencySource scanDependency(String name, Class<?> declaringType) throws Exception {
-        List<BeanDependencySource> results = new ArrayList<>();
+    public BeanDependency scanDependency(String name, Class<?> declaringType) throws Exception {
+        List<BeanDependency> results = new ArrayList<>();
         for (int i = 0; i < beanMethods.size(); i++) {
             if((name == null || name.equals(beanMethods.get(i).beanName))
                     && declaringType.isAssignableFrom(beanMethods.get(i).returnValueType)){
-                results.add(new BeanDependencySource(beanMethods.get(i).enclosingClass, beanMethods.get(i).beanMethod));
+                results.add(new BeanDependency(beanMethods.get(i).enclosingClass, beanMethods.get(i).beanMethod));
             }
         }
         if(results.size() == 0){
@@ -61,7 +61,7 @@ public class BeanMethodScanner {
         }
     }
 
-    public BeanDependencySource scanDependency(Class<?> declaringType) throws Exception {
+    public BeanDependency scanDependency(Class<?> declaringType) throws Exception {
         return scanDependency(null, declaringType);
     }
 }

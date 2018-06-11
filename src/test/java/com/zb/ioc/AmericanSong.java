@@ -1,6 +1,7 @@
 package com.zb.ioc;
 
 import com.zb.ioc.annotation.Autowired;
+import com.zb.ioc.annotation.Bean;
 import com.zb.ioc.annotation.Component;
 import com.zb.ioc.annotation.Qualifier;
 
@@ -32,5 +33,10 @@ public class AmericanSong implements Song{
 
     public Genre getGenre() {
         return genre;
+    }
+
+    @Bean("sayHello")
+    public String sayHello(){
+        return "Hello!";
     }
 }

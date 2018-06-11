@@ -3,19 +3,19 @@ package com.zb.ioc.utils;
 import java.lang.reflect.Method;
 import java.util.Objects;
 
-public class BeanDependencySource implements DependencySource{
+public class BeanDependency implements Dependency {
 
     private Class<?> component;
 
     private Method beanMethod;
 
-    public BeanDependencySource(Class<?> _component, Method _beanMethod){
+    public BeanDependency(Class<?> _component, Method _beanMethod){
         component = _component;
         beanMethod = _beanMethod;
     }
 
     @Override
-    public Class<?> getComponentClass() {
+    public Class<?> getCmp() {
         return component;
     }
 
@@ -27,7 +27,7 @@ public class BeanDependencySource implements DependencySource{
     public boolean equals(Object o) {
         if (this == o) return true;
         if (o == null || getClass() != o.getClass()) return false;
-        BeanDependencySource that = (BeanDependencySource) o;
+        BeanDependency that = (BeanDependency) o;
         return Objects.equals(component, that.component) &&
                 Objects.equals(beanMethod, that.beanMethod);
     }

@@ -2,15 +2,15 @@ package com.zb.ioc.utils;
 
 import java.util.Objects;
 
-public class ComponentDependencySource implements DependencySource{
+public class ComponentDependency implements Dependency {
     private Class<?> component;
 
     @Override
-    public Class<?> getComponentClass() {
+    public Class<?> getCmp() {
         return component;
     }
 
-    public ComponentDependencySource(Class<?> _component){
+    public ComponentDependency(Class<?> _component){
         component = _component;
     }
 
@@ -18,7 +18,7 @@ public class ComponentDependencySource implements DependencySource{
     public boolean equals(Object o) {
         if (this == o) return true;
         if (o == null || getClass() != o.getClass()) return false;
-        ComponentDependencySource that = (ComponentDependencySource) o;
+        ComponentDependency that = (ComponentDependency) o;
         return Objects.equals(component, that.component);
     }
 

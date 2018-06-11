@@ -126,4 +126,15 @@ public class BasicTest {
         BasicTest basicTest = (BasicTest)bootstrap.getBean(BasicTest.class);
         assertNotEquals(basicTest.song, basicTest.anotherSong);
     }
+
+
+    @Autowired
+    @Qualifier("sayHello")
+    String sayHello;
+
+    @Test
+    public void test010() {
+        BasicTest basicTest = (BasicTest)bootstrap.getBean(BasicTest.class);
+        assertEquals(basicTest.sayHello, "Hello!");
+    }
 }
